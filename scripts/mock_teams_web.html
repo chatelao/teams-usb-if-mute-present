@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Microsoft Teams</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f3f2f1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .call-container {
+            background-color: #242424;
+            width: 80%;
+            height: 80%;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            position: relative;
+        }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            display: flex;
+            gap: 20px;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 30px;
+        }
+        .control-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border: none;
+            outline: none;
+        }
+        #mute-btn {
+            background-color: white;
+            color: black;
+        }
+        #mute-btn.muted {
+            background-color: #d83b01;
+            color: white;
+        }
+        .status-label {
+            font-size: 24px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="call-container">
+        <div id="status" class="status-label">Mic Active</div>
+        <div class="controls">
+            <button id="mute-btn" class="control-btn" onclick="toggleMute()">🎙️</button>
+            <button class="control-btn" style="background-color: #d83b01; color: white;">📞</button>
+        </div>
+    </div>
+
+    <script>
+        let isMuted = false;
+        const muteBtn = document.getElementById('mute-btn');
+        const statusLabel = document.getElementById('status');
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            if (isMuted) {
+                muteBtn.classList.add('muted');
+                statusLabel.innerText = 'Muted';
+                console.log('Teams Status: MUTED');
+            } else {
+                muteBtn.classList.remove('muted');
+                statusLabel.innerText = 'Mic Active';
+                console.log('Teams Status: UNMUTED');
+            }
+        }
+
+        window.addEventListener('keydown', (event) => {
+            // 'm' is the shortcut for mute in Teams
+            if (event.key.toLowerCase() === 'm') {
+                toggleMute();
+            }
+        });
+    </script>
+</body>
+</html>

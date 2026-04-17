@@ -28,12 +28,23 @@ MOCK_PID=$!
 # Wait for UI to initialize
 sleep 5
 
-# 3. Run the verification script
-echo "Running hid_verify.py..."
+# 3. Run the verification scripts
+echo "Running hid_verify.py (Desktop Mock)..."
 set +e
 python3 scripts/hid_verify.py
-RESULT=$?
+RESULT_DESKTOP=$?
+
+echo "Running teams_web_automation.py (Web Mock)..."
+python3 scripts/teams_web_automation.py
+RESULT_WEB=$?
 set -e
+
+# Calculate overall result
+if [ $RESULT_DESKTOP -eq 0 ] && [ $RESULT_WEB -eq 0 ]; then
+    RESULT=0
+else
+    RESULT=1
+fi
 
 # 4. Cleanup
 echo "Cleaning up Mock UI (PID: $MOCK_PID)..."
