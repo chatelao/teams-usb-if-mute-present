@@ -22,11 +22,10 @@ def simulate_hid_event(page, usage):
         if page == 0x0B and usage == 0x2F:
             logger.info("Emulating Telephony Mute (0x0B, 0x2F) via pyautogui...")
             # 'm' toggles mute in our mock UI and is a common Teams shortcut
-            # 'volumemute' is the consumer page mute equivalent
             pyautogui.press('m')
-            pyautogui.press('volumemute')
         elif page == 0x0C and usage == 0xE2:
             logger.info("Emulating Consumer Mute (0x0C, 0xE2) via pyautogui...")
+            # 'volumemute' is the consumer page mute equivalent
             pyautogui.press('volumemute')
         else:
             logger.warning(f"Unsupported HID event: Page={hex(page)}, Usage={hex(usage)}")

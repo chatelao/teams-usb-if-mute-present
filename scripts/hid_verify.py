@@ -27,7 +27,7 @@ def run_verification_cycle(page, usage, template_path, label):
     """
     Runs a single HID event and verification cycle.
     """
-    logger.info(f"--- Starting {label} Verification ---")
+    logger.info(f"--- Starting {label} Verification (Page={hex(page)}, Usage={hex(usage)}) ---")
 
     if not simulate_hid_event(page, usage):
         logger.error(f"Failed to simulate HID event for {label}")
@@ -45,12 +45,19 @@ def main():
     logger.info("Starting Teams HID Verification...")
 
     # 1. Simulate Mute (Telephony Page 0x0B, Usage 0x2F)
-    # We toggle it. First should go to Mute.
-    if not run_verification_cycle(0x0B, 0x2F, "templates/mute_icon.png", "Mute"):
+    if not run_verification_cycle(0x0B, 0x2F, "templates/mute_icon.png", "Telephony Mute"):
         if not IS_CI: sys.exit(1)
 
-    # 2. Simulate Unmute (Toggle back)
-    if not run_verification_cycle(0x0B, 0x2F, "templates/unmute_icon.png", "Unmute"):
+    # 2. Simulate Unmute (Telephony Page 0x0B, Usage 0x2F) - Toggle back
+    if not run_verification_cycle(0x0B, 0x2F, "templates/unmute_icon.png", "Telephony Unmute"):
+        if not IS_CI: sys.exit(1)
+
+    # 3. Simulate Mute (Consumer Page 0x0C, Usage 0xE2)
+    if not run_verification_cycle(0x0C, 0xE2, "templates/mute_icon.png", "Consumer Mute"):
+        if not IS_CI: sys.exit(1)
+
+    # 4. Simulate Unmute (Consumer Page 0x0C, Usage 0xE2) - Toggle back
+    if not run_verification_cycle(0x0C, 0xE2, "templates/unmute_icon.png", "Consumer Unmute"):
         if not IS_CI: sys.exit(1)
 
     logger.info("Verification process completed.")
