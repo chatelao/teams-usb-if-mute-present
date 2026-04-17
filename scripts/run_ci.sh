@@ -20,8 +20,32 @@ else
     echo "Using existing DISPLAY: $DISPLAY"
 fi
 
-# 2. Run the verification script
-echo "Running hid_verify.py..."
-python3 scripts/hid_verify.py
+# 2. Launch Mock Teams UI in the background
+echo "Launching Mock Teams UI..."
+python3 scripts/mock_teams_ui.py > mock_ui.log 2>&1 &
+MOCK_PID=$!
 
-echo "Verification completed successfully."
+# Wait for UI to initialize
+sleep 5
+
+# 3. Run the verification script
+echo "Running hid_verify.py..."
+set +e
+python3 scripts/hid_verify.py
+RESULT=$?
+set -e
+
+# 4. Cleanup
+echo "Cleaning up Mock UI (PID: $MOCK_PID)..."
+kill $MOCK_PID || true
+
+echo "--- Mock UI Log ---"
+cat mock_ui.log
+echo "-------------------"
+
+if [ $RESULT -eq 0 ]; then
+    echo "Verification completed successfully."
+else
+    echo "Verification failed with exit code $RESULT."
+    exit $RESULT
+fi
