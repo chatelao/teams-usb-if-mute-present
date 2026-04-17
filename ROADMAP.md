@@ -29,7 +29,7 @@ Ziel: Microsoft Teams fernsteuern und in einen Call-Zustand bringen.
     - Simulation des Teams-Web-Interfaces zur Verifizierung der HID-Logik ohne echte Teams-Installation.
 - [ ] **Installation (Echtbetrieb):**
     - Automatisierte Installation von Microsoft Teams (Linux-Client oder Web-App via Selenium/Playwright).
-- [ ] **Workflow-Skript:**
+- [x] **Workflow-Skript:**
     - Starten von Teams.
     - Einwählen in einen Test-Call (z.B. Echo-Test oder geplanter Call).
     - Sicherstellen, dass das Fenster im Fokus ist.

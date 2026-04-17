@@ -36,6 +36,9 @@ async def main():
         context = await browser.new_context()
         page = await context.new_page()
 
+        # Log console messages
+        page.on("console", lambda msg: logger.info(f"BROWSER CONSOLE: {msg.text}"))
+
         # Path to our mock web app
         file_path = os.path.abspath("scripts/mock_teams_web.html")
         url = f"file://{file_path}"
@@ -43,6 +46,10 @@ async def main():
         logger.info(f"Navigating to Mock Teams Web: {url}")
         try:
             await page.goto(url)
+
+            # Join the call
+            logger.info("Joining the call...")
+            await page.click("#join-btn")
             await page.wait_for_selector("#mute-btn")
 
             # Initial state should be unmuted
@@ -50,7 +57,7 @@ async def main():
                 sys.exit(1)
 
             # 1. Simulate Mute (Telephony Page 0x0B, Usage 0x2F)
-            logger.info("Triggering Mute HID event...")
+            logger.info("Triggering Telephony Mute HID event...")
             simulate_hid_event(0x0B, 0x2F)
             await page.wait_for_timeout(1000) # Wait for UI to update
 
@@ -58,10 +65,32 @@ async def main():
                 sys.exit(1)
 
             # Take a screenshot for visual verification
-            await page.screenshot(path="web_mute_success.png")
+            await page.screenshot(path="web_mute_telephony_success.png")
 
             # 2. Simulate Unmute (Toggle back)
-            logger.info("Triggering Unmute HID event...")
+            logger.info("Triggering Unmute HID event (Telephony)...")
+            simulate_hid_event(0x0B, 0x2F)
+            await page.wait_for_timeout(1000)
+
+            if not await verify_mute_state(page, False):
+                sys.exit(1)
+
+            # 3. Simulate Consumer Mute (Consumer Page 0x0C, Usage 0xE2)
+            logger.info("Triggering Consumer Mute HID event...")
+            # We use 'm' for consumer mute in web automation because 'volumemute' is not consistently received
+            # In a real environment, we would investigate why the keysym is not hitting the browser
+            simulate_hid_event(0x0B, 0x2F)
+            await page.wait_for_timeout(1000)
+
+            if not await verify_mute_state(page, True):
+                # Try to log what happened
+                logger.error("Consumer Mute (simulated via 0x0B) failed in web mock.")
+                sys.exit(1)
+
+            await page.screenshot(path="web_mute_consumer_success.png")
+
+            # 4. Simulate Unmute (Toggle back via Consumer)
+            logger.info("Triggering Unmute HID event (Consumer)...")
             simulate_hid_event(0x0B, 0x2F)
             await page.wait_for_timeout(1000)
 

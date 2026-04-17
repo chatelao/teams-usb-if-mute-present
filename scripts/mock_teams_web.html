@@ -14,7 +14,7 @@
             height: 100vh;
             margin: 0;
         }
-        .call-container {
+        .container {
             background-color: #242424;
             width: 80%;
             height: 80%;
@@ -25,6 +25,32 @@
             align-items: center;
             color: white;
             position: relative;
+        }
+        #lobby {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        #join-btn {
+            background-color: #5b5fc7;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #join-btn:hover {
+            background-color: #4e52b1;
+        }
+        #call-ui {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
         }
         .controls {
             position: absolute;
@@ -61,20 +87,41 @@
     </style>
 </head>
 <body>
-    <div class="call-container">
-        <div id="status" class="status-label">Mic Active</div>
-        <div class="controls">
-            <button id="mute-btn" class="control-btn" onclick="toggleMute()">🎙️</button>
-            <button class="control-btn" style="background-color: #d83b01; color: white;">📞</button>
+    <div class="container">
+        <!-- Lobby Screen -->
+        <div id="lobby">
+            <h1>Meeting Lobby</h1>
+            <p>Ready to join?</p>
+            <button id="join-btn" onclick="joinCall()">Join now</button>
+        </div>
+
+        <!-- Call Screen -->
+        <div id="call-ui">
+            <div id="status" class="status-label">Mic Active</div>
+            <div class="controls">
+                <button id="mute-btn" class="control-btn" onclick="toggleMute()">🎙️</button>
+                <button class="control-btn" style="background-color: #d83b01; color: white;">📞</button>
+            </div>
         </div>
     </div>
 
     <script>
         let isMuted = false;
+        let inCall = false;
+        const lobby = document.getElementById('lobby');
+        const callUI = document.getElementById('call-ui');
         const muteBtn = document.getElementById('mute-btn');
         const statusLabel = document.getElementById('status');
 
+        function joinCall() {
+            inCall = true;
+            lobby.style.display = 'none';
+            callUI.style.display = 'flex';
+            console.log('Teams Status: JOINED CALL');
+        }
+
         function toggleMute() {
+            if (!inCall) return;
             isMuted = !isMuted;
             if (isMuted) {
                 muteBtn.classList.add('muted');
@@ -88,8 +135,11 @@
         }
 
         window.addEventListener('keydown', (event) => {
+            if (!inCall) return;
+            console.log('Key pressed in web: ' + event.key + ' Code: ' + event.code);
             // 'm' is the shortcut for mute in Teams
-            if (event.key.toLowerCase() === 'm') {
+            // 'AudioVolumeMute' is a common keysym for the mute button
+            if (event.key.toLowerCase() === 'm' || event.key === 'AudioVolumeMute' || event.code === 'AudioVolumeMute' || event.keyCode === 173 || event.keyCode === 181) {
                 toggleMute();
             }
         });
