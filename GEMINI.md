@@ -6,3 +6,4 @@ Beweise ob Microsoft Teams das Mikrofon und Lautsprecher Stummschaltung ein-/aus
 - Installieren ein Teams
 - Simuliere die USB-Tastatureingaben
 - Erstelle Screenshots um zu sehen, ob das Mikrofon ein-/ausgeschaltet wird.
+- Teile falls sinnvoll teile Schritte der Roadmap in mehrere Teilschritte unter oder setze mehere Schritte gleichzeitig um.
