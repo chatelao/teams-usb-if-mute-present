@@ -6,22 +6,14 @@ Automated HID simulation and UI verification.
 
 import os
 import sys
-import logging
 from hid_simulator import simulate_hid_event
 from image_verifier import capture_screenshot, verify_template
+from logger_config import setup_logger
 
 # Environment Check
 IS_CI = os.environ.get('CI') == 'true'
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 def run_verification_cycle(page, usage, template_path, label):
     """

@@ -2,18 +2,10 @@ import asyncio
 from playwright.async_api import async_playwright
 import os
 import sys
-import logging
 from hid_simulator import simulate_hid_event
+from logger_config import setup_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 async def verify_mute_state(page, expected_muted):
     """

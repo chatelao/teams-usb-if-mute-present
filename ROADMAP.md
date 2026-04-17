@@ -27,7 +27,7 @@ Ziel: Microsoft Teams fernsteuern und in einen Call-Zustand bringen.
 
 - [x] **Mock-Automatisierung (CI-ready):**
     - Simulation des Teams-Web-Interfaces zur Verifizierung der HID-Logik ohne echte Teams-Installation.
-- [ ] **Installation (Echtbetrieb):**
+- [x] **Installation (Echtbetrieb):**
     - Automatisierte Installation von Microsoft Teams (Linux-Client oder Web-App via Selenium/Playwright).
 - [x] **Workflow-Skript:**
     - Starten von Teams.
