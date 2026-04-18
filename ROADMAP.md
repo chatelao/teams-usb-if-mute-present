@@ -28,11 +28,9 @@ Ziel: Microsoft Teams fernsteuern und in einen Call-Zustand bringen.
 - [x] **Mock-Automatisierung (CI-ready):**
     - Simulation des Teams-Web-Interfaces zur Verifizierung der HID-Logik ohne echte Teams-Installation.
 - [x] **Installation (Echtbetrieb):**
-    - Automatisierte Installation von Microsoft Teams (Linux-Client oder Web-App via Selenium/Playwright).
+    - Automatisierte Steuerung einer echten Teams-Web-Instanz via Playwright (`real_teams_web_automation.py`).
 - [x] **Workflow-Skript:**
-    - Starten von Teams.
-    - Einwählen in einen Test-Call (z.B. Echo-Test oder geplanter Call).
-    - Sicherstellen, dass das Fenster im Fokus ist.
+    - Automatisierter Join-Prozess für Gäste in echten Meetings inklusive HID-Verifizierung.
 
 ## Phase 4: Visuelle Verifizierung
 Ziel: Automatisierte Erfolgskontrolle durch Bildanalyse.
