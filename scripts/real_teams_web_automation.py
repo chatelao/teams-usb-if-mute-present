@@ -123,7 +123,7 @@ async def main():
                 logger.info("Clicked 'Join now'")
             else:
                 logger.warning("Could not find guest name input. Capturing state.")
-                await page.screenshot(path="real_teams_prejoin_missing.png")
+                await page.screenshot(path="screenshots/real_teams_prejoin_missing.png")
 
             # 3. Wait to enter meeting
             logger.info("Waiting to enter meeting...")
@@ -134,7 +134,7 @@ async def main():
                 logger.info("Entered meeting UI.")
             except:
                 logger.error("Timed out waiting for meeting UI (Mic button).")
-                await page.screenshot(path="real_teams_join_timeout.png")
+                await page.screenshot(path="screenshots/real_teams_join_timeout.png")
                 return
 
             # Initial state detection
@@ -149,10 +149,10 @@ async def main():
 
             if not await verify_real_mute_state(page, not is_initial_muted):
                 logger.error("HID Mute verification failed on real Teams instance.")
-                await page.screenshot(path="real_teams_mute_fail.png")
+                await page.screenshot(path="screenshots/real_teams_mute_fail.png")
             else:
                 logger.info("HID Mute verification SUCCESS on real Teams instance.")
-                await page.screenshot(path="real_teams_mute_success.png")
+                await page.screenshot(path="screenshots/real_teams_mute_success.png")
 
             # 5. Perform HID Test - Toggle back
             logger.info("Triggering HID event again to toggle back...")
@@ -166,7 +166,7 @@ async def main():
 
         except Exception as e:
             logger.error(f"Error during Real Teams automation: {e}")
-            await page.screenshot(path="real_teams_error_final.png")
+            await page.screenshot(path="screenshots/real_teams_error_final.png")
         finally:
             await browser.close()
 

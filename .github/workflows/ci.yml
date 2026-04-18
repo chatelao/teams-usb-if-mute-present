@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - '**'
+  pull_request:
+    branches:
+      - '**'
 
 jobs:
   verify:
@@ -31,3 +34,12 @@ jobs:
 
       - name: Run HID Verification
         run: ./scripts/run_ci.sh
+        env:
+          TEAMS_MEETING_URL: ${{ secrets.TEAMS_MEETING_URL }}
+
+      - name: Upload Screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: teams-hid-screenshots
+          path: screenshots/

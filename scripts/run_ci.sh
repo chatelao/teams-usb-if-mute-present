@@ -6,6 +6,9 @@ set -e
 
 echo "Starting HID Compliance Verification Environment..."
 
+# 0. Ensure screenshots directory exists
+mkdir -p screenshots
+
 # 1. Initialize Xvfb if not already running
 if [ -z "$DISPLAY" ]; then
     echo "Initializing virtual framebuffer (Xvfb)..."
@@ -37,10 +40,16 @@ RESULT_DESKTOP=$?
 echo "Running teams_web_automation.py (Web Mock)..."
 python3 scripts/teams_web_automation.py
 RESULT_WEB=$?
+
+echo "Running real_teams_web_automation.py (Real Teams Web - if URL provided)..."
+# We expect TEAMS_MEETING_URL to be set if we want to run this,
+# otherwise it skips gracefully as implemented in the script.
+python3 scripts/real_teams_web_automation.py "$TEAMS_MEETING_URL"
+RESULT_REAL=$?
 set -e
 
 # Calculate overall result
-if [ $RESULT_DESKTOP -eq 0 ] && [ $RESULT_WEB -eq 0 ]; then
+if [ $RESULT_DESKTOP -eq 0 ] && [ $RESULT_WEB -eq 0 ] && [ $RESULT_REAL -eq 0 ]; then
     RESULT=0
 else
     RESULT=1
