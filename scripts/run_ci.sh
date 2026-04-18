@@ -6,8 +6,10 @@ set -e
 
 echo "Starting HID Compliance Verification Environment..."
 
-# 0. Ensure screenshots directory exists
+# 0. Ensure environment is ready
 mkdir -p screenshots
+echo "Ensuring test account credentials..."
+python3 scripts/manage_test_account.py
 
 # 1. Initialize Xvfb if not already running
 if [ -z "$DISPLAY" ]; then

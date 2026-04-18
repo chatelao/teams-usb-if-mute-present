@@ -7,3 +7,4 @@ venv/
 !screenshots/
 screenshots/*
 *.log
+test/ACCOUNT.md
