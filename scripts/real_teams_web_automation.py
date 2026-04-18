@@ -7,6 +7,12 @@ from logger_config import setup_logger
 
 logger = setup_logger(__name__)
 
+async def safe_screenshot(page, path):
+    try:
+        await page.screenshot(path=path)
+    except Exception as e:
+        logger.warning(f"Failed to capture screenshot at {path}: {e}")
+
 async def verify_real_mute_state(page, expected_muted):
     """
     Verifies the mute state in the real Teams DOM.
@@ -91,7 +97,7 @@ async def perform_login(page, user_creds):
         return True
     except Exception as e:
         logger.error(f"Login failed: {e}")
-        await page.screenshot(path="screenshots/login_failure.png")
+        await safe_screenshot(page, "screenshots/login_failure.png")
         return False
 
 async def main():
@@ -118,7 +124,7 @@ async def main():
 
         logger.info(f"Navigating to Teams Meeting: {meeting_url}")
         await page.goto(meeting_url)
-        await page.screenshot(path="screenshots/real_teams_initial_load.png")
+        await safe_screenshot(page, "screenshots/real_teams_initial_load.png")
 
         # Handle Login if credentials provided
         if user_creds and "login.microsoftonline.com" in page.url:
@@ -132,7 +138,7 @@ async def main():
                 # Common landing page button for Web join
                 continue_btn = page.locator("button:has-text('Continue on this browser'), [data-tid='joinOnWeb']")
                 await continue_btn.wait_for(state="visible", timeout=15000)
-                await page.screenshot(path="screenshots/real_teams_landing_page.png")
+                await safe_screenshot(page, "screenshots/real_teams_landing_page.png")
                 await continue_btn.click()
                 logger.info("Clicked 'Continue on this browser'")
             except Exception as e:
@@ -161,7 +167,7 @@ async def main():
             if name_input:
                 await name_input.fill("HID-Compliance-Tester")
                 logger.info("Filled guest name.")
-                await page.screenshot(path="screenshots/real_teams_prejoin_filled.png")
+                await safe_screenshot(page, "screenshots/real_teams_prejoin_filled.png")
 
                 # Join Now button
                 join_btn = page.locator("button[data-tid='prejoin-join-button'], button:has-text('Join now')")
@@ -170,7 +176,7 @@ async def main():
                 logger.info("Clicked 'Join now'")
             else:
                 logger.warning("Could not find guest name input. Capturing state.")
-                await page.screenshot(path="screenshots/real_teams_prejoin_missing.png")
+                await safe_screenshot(page, "screenshots/real_teams_prejoin_missing.png")
 
             # 3. Wait to enter meeting
             logger.info("Waiting to enter meeting...")
@@ -179,10 +185,10 @@ async def main():
             try:
                 await page.wait_for_selector(mic_button_sel, timeout=60000)
                 logger.info("Entered meeting UI.")
-                await page.screenshot(path="screenshots/real_teams_meeting_ui.png")
+                await safe_screenshot(page, "screenshots/real_teams_meeting_ui.png")
             except:
                 logger.error("Timed out waiting for meeting UI (Mic button).")
-                await page.screenshot(path="screenshots/real_teams_join_timeout.png")
+                await safe_screenshot(page, "screenshots/real_teams_join_timeout.png")
                 sys.exit(1)
 
             # Initial state detection
@@ -197,11 +203,11 @@ async def main():
 
             if not await verify_real_mute_state(page, not is_initial_muted):
                 logger.error("HID Mute verification failed on real Teams instance.")
-                await page.screenshot(path="screenshots/real_teams_mute_fail.png")
+                await safe_screenshot(page, "screenshots/real_teams_mute_fail.png")
                 sys.exit(1)
             else:
                 logger.info("HID Mute verification SUCCESS on real Teams instance.")
-                await page.screenshot(path="screenshots/real_teams_mute_success.png")
+                await safe_screenshot(page, "screenshots/real_teams_mute_success.png")
 
             # 5. Perform HID Test - Toggle back
             logger.info("Triggering HID event again to toggle back...")
@@ -216,7 +222,7 @@ async def main():
 
         except Exception as e:
             logger.error(f"Error during Real Teams automation: {e}")
-            await page.screenshot(path="screenshots/real_teams_error_final.png")
+            await safe_screenshot(page, "screenshots/real_teams_error_final.png")
             sys.exit(1)
         finally:
             await browser.close()
