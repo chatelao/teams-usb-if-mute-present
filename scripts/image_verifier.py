@@ -25,7 +25,7 @@ def capture_screenshot():
             screenshot = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
 
             # Save for debugging
-            debug_path = f"debug_screenshot_{int(time.time())}.png"
+            debug_path = f"screenshots/debug_screenshot_{int(time.time())}.png"
             screenshot.save(debug_path)
             logger.info(f"Saved debug screenshot to {debug_path}")
             return screenshot

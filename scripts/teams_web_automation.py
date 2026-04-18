@@ -57,7 +57,7 @@ async def main():
                 sys.exit(1)
 
             # Take a screenshot for visual verification
-            await page.screenshot(path="web_mute_telephony_success.png")
+            await page.screenshot(path="screenshots/web_mute_telephony_success.png")
 
             # 2. Simulate Unmute (Toggle back)
             logger.info("Triggering Unmute HID event (Telephony)...")
@@ -79,7 +79,7 @@ async def main():
                 logger.error("Consumer Mute (simulated via 0x0B) failed in web mock.")
                 sys.exit(1)
 
-            await page.screenshot(path="web_mute_consumer_success.png")
+            await page.screenshot(path="screenshots/web_mute_consumer_success.png")
 
             # 4. Simulate Unmute (Toggle back via Consumer)
             logger.info("Triggering Unmute HID event (Consumer)...")
@@ -89,7 +89,7 @@ async def main():
             if not await verify_mute_state(page, False):
                 sys.exit(1)
 
-            await page.screenshot(path="web_unmute_success.png")
+            await page.screenshot(path="screenshots/web_unmute_success.png")
             logger.info("Teams Web Automation: ALL TESTS PASSED")
 
         except Exception as e:
