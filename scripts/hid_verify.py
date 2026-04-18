@@ -25,7 +25,10 @@ def run_verification_cycle(page, usage, template_path, label):
         logger.error(f"Failed to simulate HID event for {label}")
         return False
 
-    screenshot = capture_screenshot()
+    # Use descriptive name for screenshots in hid_verify
+    screenshot_name = f"screenshots/desktop_{label.lower().replace(' ', '_')}.png"
+    screenshot = capture_screenshot(screenshot_name)
+
     if verify_template(screenshot, template_path):
         logger.info(f"{label} Verification: SUCCESS")
         return True

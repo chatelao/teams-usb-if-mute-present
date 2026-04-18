@@ -58,14 +58,12 @@ async def verify_real_mute_state(page, expected_muted):
         return False
 
 async def main():
-    if len(sys.argv) < 2 or not sys.argv[1]:
-        logger.error("Usage: python scripts/real_teams_web_automation.py <meeting_url>")
-        # We don't exit with error here to allow CI to pass if no URL is provided,
-        # but we log the requirement.
-        logger.info("Skipping real Teams execution: No meeting URL provided or URL is empty.")
-        return
+    meeting_url = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else "https://teams.microsoft.com/v2/"
 
-    meeting_url = sys.argv[1]
+    if meeting_url == "https://teams.microsoft.com/v2/":
+        logger.info("No meeting URL provided. Defaulting to Teams Web Portal to ensure real instance is called.")
+    else:
+        logger.info(f"Using meeting URL: {meeting_url}")
 
     async with async_playwright() as p:
         # headless=False is required for pyautogui HID simulation to hit the browser window
@@ -79,6 +77,7 @@ async def main():
 
         logger.info(f"Navigating to Teams Meeting: {meeting_url}")
         await page.goto(meeting_url)
+        await page.screenshot(path="screenshots/real_teams_initial_load.png")
 
         try:
             # 1. Handle Launcher/Landing Page
@@ -87,6 +86,7 @@ async def main():
                 # Common landing page button for Web join
                 continue_btn = page.locator("button:has-text('Continue on this browser'), [data-tid='joinOnWeb']")
                 await continue_btn.wait_for(state="visible", timeout=15000)
+                await page.screenshot(path="screenshots/real_teams_landing_page.png")
                 await continue_btn.click()
                 logger.info("Clicked 'Continue on this browser'")
             except Exception as e:
@@ -115,6 +115,7 @@ async def main():
             if name_input:
                 await name_input.fill("HID-Compliance-Tester")
                 logger.info("Filled guest name.")
+                await page.screenshot(path="screenshots/real_teams_prejoin_filled.png")
 
                 # Join Now button
                 join_btn = page.locator("button[data-tid='prejoin-join-button'], button:has-text('Join now')")
@@ -132,6 +133,7 @@ async def main():
             try:
                 await page.wait_for_selector(mic_button_sel, timeout=60000)
                 logger.info("Entered meeting UI.")
+                await page.screenshot(path="screenshots/real_teams_meeting_ui.png")
             except:
                 logger.error("Timed out waiting for meeting UI (Mic button).")
                 await page.screenshot(path="screenshots/real_teams_join_timeout.png")

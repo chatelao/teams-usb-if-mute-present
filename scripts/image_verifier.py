@@ -13,7 +13,7 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-def capture_screenshot():
+def capture_screenshot(custom_path=None):
     """
     Captures a screenshot of the primary monitor.
     """
@@ -24,10 +24,14 @@ def capture_screenshot():
             sct_img = sct.grab(monitor)
             screenshot = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
 
-            # Save for debugging
-            debug_path = f"screenshots/debug_screenshot_{int(time.time())}.png"
-            screenshot.save(debug_path)
-            logger.info(f"Saved debug screenshot to {debug_path}")
+            # Save path
+            if custom_path:
+                save_path = custom_path
+            else:
+                save_path = f"screenshots/debug_screenshot_{int(time.time())}.png"
+
+            screenshot.save(save_path)
+            logger.info(f"Saved screenshot to {save_path}")
             return screenshot
 
     except Exception as e:
