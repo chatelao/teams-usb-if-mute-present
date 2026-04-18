@@ -8,6 +8,10 @@ from logger_config import setup_logger
 logger = setup_logger(__name__)
 
 async def safe_screenshot(page, path):
+    """
+    Attempts to capture a screenshot, logging a warning if it fails.
+    Prevents script termination due to environment-specific protocol errors.
+    """
     try:
         await page.screenshot(path=path)
     except Exception as e:
@@ -76,24 +80,37 @@ async def perform_login(page, user_creds):
         username, password = user_creds.split(":", 1)
         logger.info(f"Attempting login for user: {username}")
 
-        # Wait for email input
-        await page.wait_for_selector("input[type='email'], input[name='loginfmt']", timeout=30000)
-        await page.fill("input[type='email'], input[name='loginfmt']", username)
-        await page.click("input[type='submit'], #idSIButton9")
+        # 1. Email/Username
+        logger.info("Waiting for email/username input...")
+        email_input = page.locator("input[type='email'], input[name='loginfmt']")
+        await email_input.wait_for(state="visible", timeout=30000)
+        await email_input.fill(username)
 
-        # Wait for password input
-        await page.wait_for_selector("input[type='password'], input[name='passwd']", timeout=30000)
-        await page.fill("input[type='password'], input[name='passwd']", password)
-        await page.click("input[type='submit'], #idSIButton9")
+        submit_btn = page.locator("input[type='submit'], #idSIButton9")
+        await submit_btn.click()
+        logger.info("Username submitted.")
 
-        # Handle 'Stay signed in?'
+        # 2. Password
+        logger.info("Waiting for password input...")
+        pass_input = page.locator("input[type='password'], input[name='passwd']")
+        # Sometimes there's a transition, wait for it to be visible
+        await pass_input.wait_for(state="visible", timeout=30000)
+        await pass_input.fill(password)
+
+        await submit_btn.wait_for(state="visible", timeout=10000)
+        await submit_btn.click()
+        logger.info("Password submitted.")
+
+        # 3. Handle 'Stay signed in?' / 'Keep me signed in'
         try:
-            await page.wait_for_selector("#idSIButton9", timeout=10000)
-            await page.click("#idSIButton9")
-        except:
-            pass
+            logger.info("Checking for 'Stay signed in' prompt...")
+            # Use a shorter timeout as this might not appear
+            await submit_btn.wait_for(state="visible", timeout=15000)
+            await submit_btn.click()
+            logger.info("Handled 'Stay signed in' prompt.")
+        except Exception as e:
+            logger.info(f"No 'Stay signed in' prompt detected or click failed: {e}")
 
-        logger.info("Login credentials submitted.")
         return True
     except Exception as e:
         logger.error(f"Login failed: {e}")
@@ -119,73 +136,74 @@ async def main():
         )
         page = await context.new_page()
 
-        logger.info(f"Navigating to Teams Meeting: {meeting_url}")
+        logger.info(f"Navigating to Teams: {meeting_url}")
         await page.goto(meeting_url)
-        await safe_screenshot(page, "screenshots/real_teams_initial_load.png")
 
-        # Handle Login if credentials provided
-        if user_creds and "login.microsoftonline.com" in page.url:
-            if not await perform_login(page, user_creds):
-                sys.exit(1)
+        # Main setup loop to handle transitions (login, landing pages, pre-join)
+        start_time = asyncio.get_event_loop().time()
+        max_duration = 180 # 3 minutes total for setup
 
-        try:
-            # 1. Handle Launcher/Landing Page
-            logger.info("Handling landing page...")
-            try:
-                # Common landing page button for Web join
-                continue_btn = page.locator("button:has-text('Continue on this browser'), [data-tid='joinOnWeb']")
-                await continue_btn.wait_for(state="visible", timeout=15000)
+        mic_button_sel = "button[data-tid='microphone-button'], button[aria-label^='Mute'], button[aria-label^='Unmute']"
+
+        while (asyncio.get_event_loop().time() - start_time) < max_duration:
+            current_url = page.url
+            logger.info(f"Current Page: {await page.title()} ({current_url})")
+
+            # 1. Handle Microsoft Login
+            if "login.microsoftonline.com" in current_url and user_creds:
+                logger.info("Microsoft Login detected.")
+                if not await perform_login(page, user_creds):
+                    logger.error("Login attempt failed.")
+                    sys.exit(1)
+                await page.wait_for_timeout(5000)
+                continue
+
+            # 2. Handle Landing Page / Launcher
+            continue_btn = page.locator("button:has-text('Continue on this browser'), [data-tid='joinOnWeb']")
+            if await continue_btn.is_visible():
+                logger.info("Landing page detected. Clicking 'Continue on this browser'.")
                 await safe_screenshot(page, "screenshots/real_teams_landing_page.png")
                 await continue_btn.click()
-                logger.info("Clicked 'Continue on this browser'")
-            except Exception as e:
-                logger.warning(f"Landing page button not found (might have been skipped): {e}")
+                await page.wait_for_timeout(5000)
+                continue
 
-            # 2. Handle Pre-join Screen (Guest Name)
-            logger.info("Waiting for pre-join screen...")
-            # Teams guest name input selectors
-            name_input_selectors = [
-                "input[data-tid='prejoin-display-name-input']",
-                "input[placeholder*='name']",
-                "input[placeholder*='Name']",
-                "#prejoin-display-name-input"
-            ]
-
-            name_input = None
-            for sel in name_input_selectors:
-                try:
-                    found = page.locator(sel)
-                    if await found.is_visible(timeout=5000):
-                        name_input = found
-                        break
-                except:
-                    continue
-
-            if name_input:
+            # 3. Handle Pre-join Screen (Guest Name)
+            name_input = page.locator("input[data-tid='prejoin-display-name-input'], input[placeholder*='name'], input[placeholder*='Name'], #prejoin-display-name-input")
+            if await name_input.is_visible():
+                logger.info("Pre-join screen detected. Filling guest name.")
                 await name_input.fill("HID-Compliance-Tester")
-                logger.info("Filled guest name.")
                 await safe_screenshot(page, "screenshots/real_teams_prejoin_filled.png")
-
-                # Join Now button
                 join_btn = page.locator("button[data-tid='prejoin-join-button'], button:has-text('Join now')")
                 await join_btn.wait_for(state="visible", timeout=5000)
                 await join_btn.click()
                 logger.info("Clicked 'Join now'")
-            else:
-                logger.warning("Could not find guest name input. Capturing state.")
-                await safe_screenshot(page, "screenshots/real_teams_prejoin_missing.png")
+                await page.wait_for_timeout(5000)
+                continue
 
-            # 3. Wait to enter meeting
-            logger.info("Waiting to enter meeting...")
-            # The mic button appearing is a good sign we are in
-            mic_button_sel = "button[data-tid='microphone-button'], button[aria-label^='Mute'], button[aria-label^='Unmute']"
-            try:
-                await page.wait_for_selector(mic_button_sel, timeout=60000)
-                logger.info("Entered meeting UI.")
+            # 4. Check if we reached the meeting UI
+            if await page.locator(mic_button_sel).first.is_visible():
+                logger.info("Successfully entered meeting UI.")
                 await safe_screenshot(page, "screenshots/real_teams_meeting_ui.png")
-            except:
-                logger.error("Timed out waiting for meeting UI (Mic button).")
-                await safe_screenshot(page, "screenshots/real_teams_join_timeout.png")
+                break
+
+            # 5. Handle potential "Use this browser" or other one-off prompts
+            browser_btn = page.locator("button:has-text('Use this browser')")
+            if await browser_btn.is_visible():
+                logger.info("One-off browser prompt detected. Clicking.")
+                await browser_btn.click()
+                continue
+
+            logger.info("Waiting for UI state transition...")
+            await page.wait_for_timeout(5000)
+        else:
+            logger.error("Timed out waiting to reach meeting UI.")
+            await safe_screenshot(page, "screenshots/real_teams_setup_timeout.png")
+            sys.exit(1)
+
+        try:
+            # Final verification of meeting UI before HID tests
+            if not await page.locator(mic_button_sel).first.is_visible():
+                logger.error("Lost meeting UI after setup loop.")
                 sys.exit(1)
 
             # Initial state detection
@@ -193,7 +211,7 @@ async def main():
             is_initial_muted = "Unmute" in (aria_label or "")
             logger.info(f"Initial state: {'Muted' if is_initial_muted else 'Unmuted'}")
 
-            # 4. Perform HID Test - Toggle Mute
+            # 6. Perform HID Test - Toggle Mute
             logger.info("Triggering HID Telephony Mute event (0x0B, 0x2F)...")
             simulate_hid_event(0x0B, 0x2F)
             await page.wait_for_timeout(3000)
@@ -206,7 +224,7 @@ async def main():
                 logger.info("HID Mute verification SUCCESS on real Teams instance.")
                 await safe_screenshot(page, "screenshots/real_teams_mute_success.png")
 
-            # 5. Perform HID Test - Toggle back
+            # 7. Perform HID Test - Toggle back
             logger.info("Triggering HID event again to toggle back...")
             simulate_hid_event(0x0B, 0x2F)
             await page.wait_for_timeout(3000)
