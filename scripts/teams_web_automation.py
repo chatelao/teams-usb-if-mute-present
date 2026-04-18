@@ -54,10 +54,11 @@ async def main():
             await page.wait_for_timeout(1000) # Wait for UI to update
 
             if not await verify_mute_state(page, True):
+                await page.screenshot(path="screenshots/web_mock_mute_telephony_fail.png")
                 sys.exit(1)
 
             # Take a screenshot for visual verification
-            await page.screenshot(path="screenshots/web_mute_telephony_success.png")
+            await page.screenshot(path="screenshots/web_mock_mute_telephony_success.png")
 
             # 2. Simulate Unmute (Toggle back)
             logger.info("Triggering Unmute HID event (Telephony)...")
@@ -65,7 +66,10 @@ async def main():
             await page.wait_for_timeout(1000)
 
             if not await verify_mute_state(page, False):
+                await page.screenshot(path="screenshots/web_mock_unmute_telephony_fail.png")
                 sys.exit(1)
+
+            await page.screenshot(path="screenshots/web_mock_unmute_telephony_success.png")
 
             # 3. Simulate Consumer Mute (Consumer Page 0x0C, Usage 0xE2)
             logger.info("Triggering Consumer Mute HID event...")
@@ -77,9 +81,10 @@ async def main():
             if not await verify_mute_state(page, True):
                 # Try to log what happened
                 logger.error("Consumer Mute (simulated via 0x0B) failed in web mock.")
+                await page.screenshot(path="screenshots/web_mock_mute_consumer_fail.png")
                 sys.exit(1)
 
-            await page.screenshot(path="screenshots/web_mute_consumer_success.png")
+            await page.screenshot(path="screenshots/web_mock_mute_consumer_success.png")
 
             # 4. Simulate Unmute (Toggle back via Consumer)
             logger.info("Triggering Unmute HID event (Consumer)...")
@@ -87,9 +92,10 @@ async def main():
             await page.wait_for_timeout(1000)
 
             if not await verify_mute_state(page, False):
+                await page.screenshot(path="screenshots/web_mock_unmute_consumer_fail.png")
                 sys.exit(1)
 
-            await page.screenshot(path="screenshots/web_unmute_success.png")
+            await page.screenshot(path="screenshots/web_mock_unmute_consumer_success.png")
             logger.info("Teams Web Automation: ALL TESTS PASSED")
 
         except Exception as e:
