@@ -58,11 +58,11 @@ async def verify_real_mute_state(page, expected_muted):
         return False
 
 async def main():
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 2 or not sys.argv[1]:
         logger.error("Usage: python scripts/real_teams_web_automation.py <meeting_url>")
         # We don't exit with error here to allow CI to pass if no URL is provided,
         # but we log the requirement.
-        logger.info("Skipping real Teams execution: No meeting URL provided.")
+        logger.info("Skipping real Teams execution: No meeting URL provided or URL is empty.")
         return
 
     meeting_url = sys.argv[1]
