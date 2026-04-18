@@ -41,19 +41,19 @@ def main():
 
     # 1. Simulate Mute (Telephony Page 0x0B, Usage 0x2F)
     if not run_verification_cycle(0x0B, 0x2F, "templates/mute_icon.png", "Telephony Mute"):
-        if not IS_CI: sys.exit(1)
+        sys.exit(1)
 
     # 2. Simulate Unmute (Telephony Page 0x0B, Usage 0x2F) - Toggle back
     if not run_verification_cycle(0x0B, 0x2F, "templates/unmute_icon.png", "Telephony Unmute"):
-        if not IS_CI: sys.exit(1)
+        sys.exit(1)
 
     # 3. Simulate Mute (Consumer Page 0x0C, Usage 0xE2)
     if not run_verification_cycle(0x0C, 0xE2, "templates/mute_icon.png", "Consumer Mute"):
-        if not IS_CI: sys.exit(1)
+        sys.exit(1)
 
     # 4. Simulate Unmute (Consumer Page 0x0C, Usage 0xE2) - Toggle back
     if not run_verification_cycle(0x0C, 0xE2, "templates/unmute_icon.png", "Consumer Unmute"):
-        if not IS_CI: sys.exit(1)
+        sys.exit(1)
 
     logger.info("Verification process completed.")
 

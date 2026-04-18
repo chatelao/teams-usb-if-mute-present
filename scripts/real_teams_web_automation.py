@@ -137,7 +137,7 @@ async def main():
             except:
                 logger.error("Timed out waiting for meeting UI (Mic button).")
                 await page.screenshot(path="screenshots/real_teams_join_timeout.png")
-                return
+                sys.exit(1)
 
             # Initial state detection
             aria_label = await page.locator(mic_button_sel).first.get_attribute("aria-label")
@@ -152,6 +152,7 @@ async def main():
             if not await verify_real_mute_state(page, not is_initial_muted):
                 logger.error("HID Mute verification failed on real Teams instance.")
                 await page.screenshot(path="screenshots/real_teams_mute_fail.png")
+                sys.exit(1)
             else:
                 logger.info("HID Mute verification SUCCESS on real Teams instance.")
                 await page.screenshot(path="screenshots/real_teams_mute_success.png")
@@ -163,12 +164,14 @@ async def main():
 
             if not await verify_real_mute_state(page, is_initial_muted):
                 logger.error("HID Unmute toggle failed on real Teams instance.")
+                sys.exit(1)
             else:
                 logger.info("HID Unmute toggle SUCCESS on real Teams instance.")
 
         except Exception as e:
             logger.error(f"Error during Real Teams automation: {e}")
             await page.screenshot(path="screenshots/real_teams_error_final.png")
+            sys.exit(1)
         finally:
             await browser.close()
 

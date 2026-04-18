@@ -45,7 +45,7 @@ RESULT_WEB=$?
 
 echo "Running real_teams_web_automation.py (Real Teams Web - if URL provided)..."
 # We expect TEAMS_MEETING_URL to be set if we want to run this,
-# otherwise it skips gracefully as implemented in the script.
+# otherwise it is handled in the script (defaults to Teams portal).
 python3 scripts/real_teams_web_automation.py "$TEAMS_MEETING_URL"
 RESULT_REAL=$?
 set -e
