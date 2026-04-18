@@ -16,7 +16,7 @@ Das Projekt dient der automatisierten Verifizierung der Konformität von Microso
 ## Aktueller Status (Phase 5 abgeschlossen)
 *   **Infrastruktur:** CI-Pipeline in GitHub Actions stabil integriert.
 *   **Automatisierung:** HID-Simulation und Bilderkennungslogik sind implementiert und verifiziert.
-*   **Abdeckung:** Sowohl Desktop-Mock-Anwendungen als auch Web-Interface-Automatisierung (Playwright) sind aktiv.
+*   **Abdeckung:** Sowohl Desktop-Mock-Anwendungen als auch die Automatisierung echter Microsoft Teams Web-Instanzen (`real_teams_web_automation.py`) sind aktiv.
 
 ## Strategischer Nutzen
 Durch die automatisierte Prüfung wird die Interoperabilität zwischen Microsoft Teams und USB-Audiogeräten sichergestellt. Dies führt zu einer verbesserten Nutzererfahrung durch zuverlässige Synchronisation von Hardware-Tasten und Software-Status und reduziert den manuellen Testaufwand erheblich.
