@@ -101,14 +101,11 @@ async def perform_login(page, user_creds):
         return False
 
 async def main():
-    meeting_url = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else None
+    meeting_url = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else "https://teams.microsoft.com/v2/"
     user_creds = os.environ.get("TEAMS_USER")
 
-    if not meeting_url:
-        # Fallback to local realistic mock if no URL is provided (e.g. in CI)
-        file_path = os.path.abspath("scripts/mock_teams_web.html")
-        meeting_url = f"file://{file_path}"
-        logger.info(f"No meeting URL provided. Falling back to local realistic mock: {meeting_url}")
+    if meeting_url == "https://teams.microsoft.com/v2/":
+        logger.info("No meeting URL provided. Defaulting to Teams Web Portal to ensure real instance is called.")
     else:
         logger.info(f"Using meeting URL: {meeting_url}")
 
