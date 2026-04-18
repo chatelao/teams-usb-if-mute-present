@@ -80,6 +80,14 @@
             background-color: #d83b01;
             color: white;
         }
+        /* Style for the guest name input */
+        #prejoin-display-name-input {
+            padding: 8px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+        }
         .status-label {
             font-size: 24px;
             margin-top: 20px;
@@ -92,14 +100,15 @@
         <div id="lobby">
             <h1>Meeting Lobby</h1>
             <p>Ready to join?</p>
-            <button id="join-btn" onclick="joinCall()">Join now</button>
+            <input type="text" id="prejoin-display-name-input" data-tid="prejoin-display-name-input" placeholder="Enter your name">
+            <button id="join-btn" data-tid="prejoin-join-button" onclick="joinCall()">Join now</button>
         </div>
 
         <!-- Call Screen -->
         <div id="call-ui">
             <div id="status" class="status-label">Mic Active</div>
             <div class="controls">
-                <button id="mute-btn" class="control-btn" onclick="toggleMute()">🎙️</button>
+                <button id="mute-btn" data-tid="microphone-button" aria-label="Mute" class="control-btn" onclick="toggleMute()">🎙️</button>
                 <button class="control-btn" style="background-color: #d83b01; color: white;">📞</button>
             </div>
         </div>
@@ -125,10 +134,12 @@
             isMuted = !isMuted;
             if (isMuted) {
                 muteBtn.classList.add('muted');
+                muteBtn.setAttribute('aria-label', 'Unmute');
                 statusLabel.innerText = 'Muted';
                 console.log('Teams Status: MUTED');
             } else {
                 muteBtn.classList.remove('muted');
+                muteBtn.setAttribute('aria-label', 'Mute');
                 statusLabel.innerText = 'Mic Active';
                 console.log('Teams Status: UNMUTED');
             }

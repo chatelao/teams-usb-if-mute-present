@@ -43,9 +43,9 @@ echo "Running teams_web_automation.py (Web Mock)..."
 python3 scripts/teams_web_automation.py
 RESULT_WEB=$?
 
-echo "Running real_teams_web_automation.py (Real Teams Web - if URL provided)..."
-# We expect TEAMS_MEETING_URL to be set if we want to run this,
-# otherwise it is handled in the script (defaults to Teams portal).
+echo "Running real_teams_web_automation.py (Real Teams Web / Realistic Mock)..."
+# We expect TEAMS_MEETING_URL to be set if we want to run against a real meeting,
+# otherwise it defaults to a local realistic mock to verify the automation logic.
 python3 scripts/real_teams_web_automation.py "$TEAMS_MEETING_URL"
 RESULT_REAL=$?
 set -e

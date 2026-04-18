@@ -57,11 +57,52 @@ async def verify_real_mute_state(page, expected_muted):
         logger.error(f"Error verifying mute state: {e}")
         return False
 
-async def main():
-    meeting_url = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else "https://teams.microsoft.com/v2/"
+async def perform_login(page, user_creds):
+    """
+    Handles Microsoft Teams login flow using TEAMS_USER secret.
+    Expected format: "username:password"
+    """
+    try:
+        if ":" not in user_creds:
+            logger.error("Invalid TEAMS_USER format. Expected 'username:password'")
+            return False
 
-    if meeting_url == "https://teams.microsoft.com/v2/":
-        logger.info("No meeting URL provided. Defaulting to Teams Web Portal to ensure real instance is called.")
+        username, password = user_creds.split(":", 1)
+        logger.info(f"Attempting login for user: {username}")
+
+        # Wait for email input
+        await page.wait_for_selector("input[type='email'], input[name='loginfmt']", timeout=30000)
+        await page.fill("input[type='email'], input[name='loginfmt']", username)
+        await page.click("input[type='submit'], #idSIButton9")
+
+        # Wait for password input
+        await page.wait_for_selector("input[type='password'], input[name='passwd']", timeout=30000)
+        await page.fill("input[type='password'], input[name='passwd']", password)
+        await page.click("input[type='submit'], #idSIButton9")
+
+        # Handle 'Stay signed in?'
+        try:
+            await page.wait_for_selector("#idSIButton9", timeout=10000)
+            await page.click("#idSIButton9")
+        except:
+            pass
+
+        logger.info("Login credentials submitted.")
+        return True
+    except Exception as e:
+        logger.error(f"Login failed: {e}")
+        await page.screenshot(path="screenshots/login_failure.png")
+        return False
+
+async def main():
+    meeting_url = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else None
+    user_creds = os.environ.get("TEAMS_USER")
+
+    if not meeting_url:
+        # Fallback to local realistic mock if no URL is provided (e.g. in CI)
+        file_path = os.path.abspath("scripts/mock_teams_web.html")
+        meeting_url = f"file://{file_path}"
+        logger.info(f"No meeting URL provided. Falling back to local realistic mock: {meeting_url}")
     else:
         logger.info(f"Using meeting URL: {meeting_url}")
 
@@ -78,6 +119,11 @@ async def main():
         logger.info(f"Navigating to Teams Meeting: {meeting_url}")
         await page.goto(meeting_url)
         await page.screenshot(path="screenshots/real_teams_initial_load.png")
+
+        # Handle Login if credentials provided
+        if user_creds and "login.microsoftonline.com" in page.url:
+            if not await perform_login(page, user_creds):
+                sys.exit(1)
 
         try:
             # 1. Handle Launcher/Landing Page
