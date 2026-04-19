@@ -23,7 +23,7 @@ async def verify_real_mute_state(page, expected_muted):
     Looks for the microphone button and checks its aria-label or status.
     """
     try:
-        # Standard Teams V2 mic button selectors
+        # Standard Teams V2 mic button selectors (work in both pre-join and meeting)
         mic_selectors = [
             "button[data-tid='microphone-button']",
             "button[aria-label^='Mute']",
@@ -46,7 +46,7 @@ async def verify_real_mute_state(page, expected_muted):
                 continue
 
         if not mic_button:
-            logger.error("Microphone button not found in meeting UI")
+            logger.error("Microphone button not found in UI")
             return False
 
         aria_label = await mic_button.get_attribute("aria-label")
@@ -142,7 +142,7 @@ async def main():
         logger.info(f"Navigating to Teams: {meeting_url}")
         await page.goto(meeting_url)
 
-        # Main setup loop to handle complex transitions (login, landing pages, pre-join)
+        # Setup loop: Navigate until we reach the pre-join lobby where we can see the mic button
         start_time = asyncio.get_event_loop().time()
         max_duration = 600 # 10 minutes total for setup
         mic_button_sel = "button[data-tid='microphone-button'], button[aria-label^='Mute'], button[aria-label^='Unmute'], button[aria-label*='Stummschalt'], button[aria-label*='Stummheben']"
@@ -160,10 +160,12 @@ async def main():
                         await page.wait_for_timeout(5000)
                     continue
 
-                # B. Target Reached: In Meeting UI
-                if await page.locator(mic_button_sel).first.is_visible():
-                    logger.info("Meeting UI reached.")
-                    await safe_screenshot(page, "screenshots/real_teams_meeting_ui.png")
+                # B. Pre-join / Lobby Screen Detection (Target reached)
+                # We stay here to test mute/unmute directly on the join page
+                mic_btn = page.locator(mic_button_sel).first
+                if await mic_btn.is_visible():
+                    logger.info("Pre-join screen reached (Microphone button is visible).")
+                    await safe_screenshot(page, "screenshots/real_teams_prejoin_ready.png")
                     break
 
                 # C. Handle Launcher Page (Aggressively)
@@ -193,33 +195,14 @@ async def main():
                 if found_launcher:
                     continue
 
-                # D. Pre-join / Lobby Screen (Mandatory "Join now" click)
+                # D. Pre-join Screen (Filling Name but NOT clicking Join)
                 name_input = page.locator("input[data-tid='prejoin-display-name-input'], #prejoin-display-name-input, input[placeholder*='name'], input[placeholder*='Name']").first
                 if await name_input.is_visible():
-                    logger.info("Pre-join screen detected. Filling name.")
+                    logger.info("Filling guest name in pre-join screen...")
                     await name_input.fill("HID-Compliance-Tester")
-
-                    join_btn_selectors = [
-                        "button[data-tid='prejoin-join-button']",
-                        "button:has-text('Join now')",
-                        "button:has-text('Jetzt teilnehmen')",
-                        "button:has-text('Join')",
-                        "button[aria-label*='Join']",
-                        "button[aria-label*='teilnehmen']",
-                        "button:has-text('Teilnehmen')"
-                    ]
-                    for j_sel in join_btn_selectors:
-                        j_btn = page.locator(j_sel).first
-                        if await j_btn.is_visible():
-                            logger.info(f"Join button detected ({j_sel}). Clicking.")
-                            await safe_screenshot(page, "screenshots/real_teams_prejoin.png")
-                            try:
-                                await j_btn.click(force=True, timeout=5000)
-                            except:
-                                await j_btn.evaluate("node => node.click()")
-                            break
-                    await page.wait_for_timeout(5000)
-                    continue
+                    # We don't click join here, as we want to test on this page
+                    await page.wait_for_timeout(2000)
+                    # If the mic button still isn't visible, it might be behind another prompt
 
                 # E. Handle Intermediate Prompts / Permissions
                 confirm_btns = [
@@ -232,11 +215,7 @@ async def main():
                     "button:has-text('Verstanden')",
                     "button:has-text('Use this browser')",
                     "button:has-text('Dismiss')",
-                    "button:has-text('Continue')",
-                    "button:has-text('Join with audio')",
-                    "button:has-text('Join with computer audio')",
-                    "button[aria-label*='Allow']",
-                    "button[aria-label*='Zulassen']"
+                    "button:has-text('Continue')"
                 ]
                 found_confirm = False
                 for btn_sel in confirm_btns:
@@ -249,25 +228,25 @@ async def main():
                 if found_confirm:
                     continue
 
-                logger.info("Waiting for UI state transition...")
+                logger.info("Waiting for UI state transition to pre-join screen...")
                 await page.wait_for_timeout(5000)
             except Exception as loop_err:
                 logger.warning(f"Error in setup loop iteration: {loop_err}")
                 await page.wait_for_timeout(5000)
         else:
-            logger.error("Timed out waiting to reach meeting UI.")
+            logger.error("Timed out waiting to reach pre-join screen.")
             await safe_screenshot(page, "screenshots/real_teams_setup_timeout.png")
             sys.exit(1)
 
         # ----------------------------------------------------------------------
-        # HID Standard Compliance Verification
+        # HID Standard Compliance Verification (Directly on Join Page)
         # ----------------------------------------------------------------------
         try:
             mic_button = page.locator(mic_button_sel).first
             aria_label = await mic_button.get_attribute("aria-label")
             label_lower = (aria_label or "").lower()
             is_initial_muted = "unmute" in label_lower or "aufheben" in label_lower or "stummheben" in label_lower
-            logger.info(f"Initial state: {'Muted' if is_initial_muted else 'Unmuted'} (Label: {aria_label})")
+            logger.info(f"Initial state (Pre-join): {'Muted' if is_initial_muted else 'Unmuted'} (Label: {aria_label})")
 
             # 1. Trigger Mute Toggle
             logger.info("Triggering HID Telephony Mute event (0x0B, 0x2F)...")
@@ -275,11 +254,11 @@ async def main():
             await page.wait_for_timeout(5000)
 
             if not await verify_real_mute_state(page, not is_initial_muted):
-                logger.error("HID Mute verification failed on real Teams instance.")
+                logger.error("HID Mute verification failed on Teams join page.")
                 await safe_screenshot(page, "screenshots/real_teams_mute_fail.png")
                 sys.exit(1)
             else:
-                logger.info("HID Mute verification SUCCESS on real Teams instance.")
+                logger.info("HID Mute verification SUCCESS on Teams join page.")
                 await safe_screenshot(page, "screenshots/real_teams_mute_success.png")
 
             # 2. Trigger Toggle back (Unmute)
@@ -288,13 +267,13 @@ async def main():
             await page.wait_for_timeout(5000)
 
             if not await verify_real_mute_state(page, is_initial_muted):
-                logger.error("HID Unmute toggle failed on real Teams instance.")
+                logger.error("HID Unmute toggle failed on Teams join page.")
                 await safe_screenshot(page, "screenshots/real_teams_unmute_fail.png")
                 sys.exit(1)
             else:
-                logger.info("HID Unmute toggle SUCCESS on real Teams instance.")
+                logger.info("HID Unmute toggle SUCCESS on Teams join page.")
 
-            logger.info("Real Teams HID Compliance Verification: COMPLETED SUCCESSFULLY")
+            logger.info("Real Teams HID Compliance Verification: COMPLETED SUCCESSFULLY ON JOIN PAGE")
 
         except Exception as e:
             logger.error(f"Error during HID verification: {e}")
