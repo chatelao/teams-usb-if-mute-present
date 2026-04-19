@@ -29,8 +29,10 @@ async def verify_real_mute_state(page, expected_muted):
             "button[aria-label^='Mute']",
             "button[aria-label^='Unmute']",
             "button[aria-label*='Stummschalt']",
+            "button[aria-label*='Stummheben']",
             "button:has-text('Mute')",
-            "button:has-text('Unmute')"
+            "button:has-text('Unmute')",
+            "button:has-text('Stummschalt')"
         ]
 
         mic_button = None
@@ -55,7 +57,7 @@ async def verify_real_mute_state(page, expected_muted):
 
         # Teams Logic: "Unmute" (or German "aufheben") label means it IS currently muted.
         label_lower = (aria_label or "").lower()
-        is_muted = "unmute" in label_lower or "aufheben" in label_lower
+        is_muted = "unmute" in label_lower or "aufheben" in label_lower or "stummheben" in label_lower
 
         if is_muted == expected_muted:
             logger.info(f"Real Teams Verification: {'Muted' if expected_muted else 'Unmuted'} - SUCCESS")
@@ -80,53 +82,37 @@ async def perform_login(page, user_creds):
         username, password = user_creds.split(":", 1)
         logger.info(f"Attempting login for user: {username}")
 
-        # 1. Check for "Pick an account"
-        pick_account = page.locator("div[role='listitem'], .table-row")
-        if await pick_account.first.is_visible(timeout=2000):
-             logger.info("Pick an account screen detected.")
-             use_other = page.locator("#otherTile, #use_another_account")
-             if await use_other.is_visible():
-                 await use_other.click()
-                 await page.wait_for_timeout(2000)
-
-        # 2. Email/Username
+        # 1. Email/Username
         email_input = page.locator("input[type='email'], input[name='loginfmt']")
-        if await email_input.is_visible(timeout=5000):
-            logger.info("Filling email/username...")
-            await email_input.fill(username)
-            await page.locator("input[type='submit'], #idSIButton9").click()
-            await page.wait_for_timeout(2000)
+        await email_input.wait_for(state="visible", timeout=30000)
+        await email_input.fill(username)
+        await page.locator("input[type='submit'], #idSIButton9").click()
+        logger.info("Username submitted.")
 
-        # 3. Password
+        # 2. Password
         pass_input = page.locator("input[type='password'], input[name='passwd']")
-        if await pass_input.is_visible(timeout=10000):
-            logger.info("Filling password...")
-            await pass_input.fill(password)
-            await page.locator("input[type='submit'], #idSIButton9").click()
-            await page.wait_for_timeout(2000)
+        await pass_input.wait_for(state="visible", timeout=30000)
+        await pass_input.fill(password)
+        await page.locator("input[type='submit'], #idSIButton9").click()
+        logger.info("Password submitted.")
 
-        # 4. Handle 'Stay signed in?' / 'Keep me signed in'
+        # 3. Handle 'Stay signed in?'
         try:
-            stay_btn = page.locator("#idSIButton9, input[type='submit'], button:has-text('Yes'), button:has-text('Ja')")
-            if await stay_btn.is_visible(timeout=10000):
-                await stay_btn.click()
-                logger.info("Handled 'Stay signed in' prompt.")
+            stay_btn = page.locator("#idSIButton9, input[type='submit']")
+            await stay_btn.wait_for(state="visible", timeout=10000)
+            await stay_btn.click()
+            logger.info("Handled 'Stay signed in' prompt.")
         except:
             pass
 
         return True
     except Exception as e:
-        logger.error(f"Login logic error: {e}")
+        logger.error(f"Login failed: {e}")
         return False
 
 async def main():
     meeting_url = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else "https://teams.microsoft.com/v2/"
     user_creds = os.environ.get("TEAMS_USER")
-
-    if user_creds:
-        logger.info(f"TEAMS_USER secret detected (length: {len(user_creds)})")
-    else:
-        logger.warning("TEAMS_USER secret NOT detected. Login flow will be skipped.")
 
     async with async_playwright() as p:
         # Launch browser with flags to automatically grant media permissions
@@ -146,18 +132,11 @@ async def main():
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         )
 
-        # Explicitly grant permissions for Teams domains
-        origins = [
-            "https://teams.microsoft.com",
-            "https://teams.live.com",
-            "https://login.microsoftonline.com",
-            "https://teams.microsoft.com/v2/"
-        ]
-        for origin in origins:
-            await context.grant_permissions(["microphone", "camera", "notifications"], origin=origin)
+        # Explicitly grant permissions
+        await context.grant_permissions(["microphone", "camera"], origin="https://teams.microsoft.com")
+        await context.grant_permissions(["microphone", "camera"], origin="https://teams.live.com")
 
         page = await context.new_page()
-        # Automatically accept all dialogs
         page.on("dialog", lambda dialog: dialog.accept())
 
         logger.info(f"Navigating to Teams: {meeting_url}")
@@ -165,8 +144,8 @@ async def main():
 
         # Main setup loop to handle complex transitions (login, landing pages, pre-join)
         start_time = asyncio.get_event_loop().time()
-        max_duration = 360 # 6 minutes total for setup
-        mic_button_sel = "button[data-tid='microphone-button'], button[aria-label^='Mute'], button[aria-label^='Unmute'], button[aria-label*='Stummschalt']"
+        max_duration = 600 # 10 minutes total for setup
+        mic_button_sel = "button[data-tid='microphone-button'], button[aria-label^='Mute'], button[aria-label^='Unmute'], button[aria-label*='Stummschalt'], button[aria-label*='Stummheben']"
 
         while (asyncio.get_event_loop().time() - start_time) < max_duration:
             try:
@@ -174,20 +153,20 @@ async def main():
                 page_title = await page.title()
                 logger.info(f"Current Page: {page_title} ({current_url})")
 
-                # 1. Target Reached: In Meeting UI
+                # A. Handle Microsoft Login
+                if "login.microsoftonline.com" in current_url and user_creds:
+                    logger.info("Login page detected.")
+                    if not await perform_login(page, user_creds):
+                        await page.wait_for_timeout(5000)
+                    continue
+
+                # B. Target Reached: In Meeting UI
                 if await page.locator(mic_button_sel).first.is_visible():
                     logger.info("Meeting UI reached.")
                     await safe_screenshot(page, "screenshots/real_teams_meeting_ui.png")
                     break
 
-                # 2. Handle Microsoft Login
-                if "login.microsoftonline.com" in current_url and user_creds:
-                    logger.info("Entering login handling...")
-                    await perform_login(page, user_creds)
-                    await page.wait_for_timeout(3000)
-                    continue
-
-                # 3. Handle Launcher Page
+                # C. Handle Launcher Page (Aggressively)
                 launcher_selectors = [
                     "button:has-text('Continue on this browser')",
                     "button:has-text('Webversion verwenden')",
@@ -195,7 +174,7 @@ async def main():
                     "[data-tid='joinOnWeb']",
                     "button[aria-label*='browser']",
                     "a:has-text('Continue on this browser')",
-                    "a:has-text('browser instead')"
+                    ".button-continue-on-browser"
                 ]
                 found_launcher = False
                 for sel in launcher_selectors:
@@ -205,15 +184,16 @@ async def main():
                         await safe_screenshot(page, "screenshots/real_teams_launcher.png")
                         try:
                             await btn.evaluate("node => node.click()")
+                            await btn.click(force=True, timeout=2000)
                         except:
-                            await btn.click(force=True)
+                            pass
                         await page.wait_for_timeout(5000)
                         found_launcher = True
                         break
                 if found_launcher:
                     continue
 
-                # 4. Pre-join / Lobby Screen (Filling Name)
+                # D. Pre-join / Lobby Screen (Mandatory "Join now" click)
                 name_input = page.locator("input[data-tid='prejoin-display-name-input'], #prejoin-display-name-input, input[placeholder*='name'], input[placeholder*='Name']").first
                 if await name_input.is_visible():
                     logger.info("Pre-join screen detected. Filling name.")
@@ -223,19 +203,25 @@ async def main():
                         "button[data-tid='prejoin-join-button']",
                         "button:has-text('Join now')",
                         "button:has-text('Jetzt teilnehmen')",
-                        "button:has-text('Join')"
+                        "button:has-text('Join')",
+                        "button[aria-label*='Join']",
+                        "button[aria-label*='teilnehmen']",
+                        "button:has-text('Teilnehmen')"
                     ]
                     for j_sel in join_btn_selectors:
                         j_btn = page.locator(j_sel).first
                         if await j_btn.is_visible():
                             logger.info(f"Join button detected ({j_sel}). Clicking.")
                             await safe_screenshot(page, "screenshots/real_teams_prejoin.png")
-                            await j_btn.click()
+                            try:
+                                await j_btn.click(force=True, timeout=5000)
+                            except:
+                                await j_btn.evaluate("node => node.click()")
                             break
                     await page.wait_for_timeout(5000)
                     continue
 
-                # 5. Handle Intermediate Prompts / Permissions / Device Selection
+                # E. Handle Intermediate Prompts / Permissions
                 confirm_btns = [
                     "button:has-text('Allow')",
                     "button:has-text('Allow once')",
@@ -273,16 +259,18 @@ async def main():
             await safe_screenshot(page, "screenshots/real_teams_setup_timeout.png")
             sys.exit(1)
 
-        # Start HID verification
+        # ----------------------------------------------------------------------
+        # HID Standard Compliance Verification
+        # ----------------------------------------------------------------------
         try:
             mic_button = page.locator(mic_button_sel).first
             aria_label = await mic_button.get_attribute("aria-label")
             label_lower = (aria_label or "").lower()
-            is_initial_muted = "unmute" in label_lower or "aufheben" in label_lower
+            is_initial_muted = "unmute" in label_lower or "aufheben" in label_lower or "stummheben" in label_lower
             logger.info(f"Initial state: {'Muted' if is_initial_muted else 'Unmuted'} (Label: {aria_label})")
 
-            # Mute toggle
-            logger.info("Triggering HID Mute (0x0B, 0x2F)...")
+            # 1. Trigger Mute Toggle
+            logger.info("Triggering HID Telephony Mute event (0x0B, 0x2F)...")
             simulate_hid_event(0x0B, 0x2F)
             await page.wait_for_timeout(5000)
 
@@ -294,7 +282,7 @@ async def main():
                 logger.info("HID Mute verification SUCCESS on real Teams instance.")
                 await safe_screenshot(page, "screenshots/real_teams_mute_success.png")
 
-            # Unmute toggle
+            # 2. Trigger Toggle back (Unmute)
             logger.info("Triggering HID event again to toggle back...")
             simulate_hid_event(0x0B, 0x2F)
             await page.wait_for_timeout(5000)
