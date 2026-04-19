@@ -13,11 +13,13 @@ async def verify_real_mute_state(page, expected_muted):
     Looks for the microphone button and checks its aria-label or status.
     """
     try:
-        # Standard Teams V2 mic button selectors
+        # Standard Teams V2 and Light-meeting mic button selectors
         mic_selectors = [
             "button[data-tid='microphone-button']",
-            "button[aria-label^='Mute']",
-            "button[aria-label^='Unmute']",
+            "button[aria-label*='Mute' i]",
+            "button[aria-label*='Unmute' i]",
+            "button[aria-label*='Stumm' i]",
+            "button[aria-label*='Micro' i]",
             "button:has-text('Mute')",
             "button:has-text('Unmute')"
         ]
@@ -26,9 +28,13 @@ async def verify_real_mute_state(page, expected_muted):
         for sel in mic_selectors:
             try:
                 found = page.locator(sel)
-                if await found.is_visible(timeout=2000):
-                    mic_button = found
-                    break
+                if await found.count() > 0:
+                    for i in range(await found.count()):
+                        btn = found.nth(i)
+                        if await btn.is_visible():
+                            mic_button = btn
+                            break
+                if mic_button: break
             except:
                 continue
 
@@ -36,16 +42,18 @@ async def verify_real_mute_state(page, expected_muted):
             logger.error("Microphone button not found in meeting UI")
             return False
 
-        aria_label = await mic_button.get_attribute("aria-label")
-        if not aria_label:
-            # Fallback to inner text or other attributes if aria-label is missing
-            aria_label = await mic_button.inner_text()
+        aria_label = await mic_button.get_attribute("aria-label") or ""
+        inner_text = await mic_button.inner_text() or ""
 
-        logger.info(f"Microphone button state indicator: {aria_label}")
+        logger.info(f"Microphone button: aria='{aria_label}', text='{inner_text}'")
 
-        # In Teams, if the label is "Unmute", the current state is Muted.
-        # If the label is "Mute", the current state is Unmuted.
-        is_muted = "Unmute" in aria_label or "stummheben" in aria_label.lower()
+        # Logic: If the action is "Unmute" or "Stummschaltung aufheben", it is currently MUTED.
+        # If the action is "Mute" or "Stummschalten", it is currently UNMUTED.
+        # Some UIs might show the current state instead of the action.
+
+        # We look for indicators of being MUTED
+        is_muted = any(term in aria_label.lower() or term in inner_text.lower()
+                       for term in ["unmute", "aufheben", "stummgeschaltet", "muted"])
 
         if is_muted == expected_muted:
             logger.info(f"Real Teams Verification: {'Muted' if expected_muted else 'Unmuted'} - SUCCESS")
@@ -61,90 +69,127 @@ async def main():
     meeting_url = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else "https://teams.microsoft.com/v2/"
 
     if meeting_url == "https://teams.microsoft.com/v2/":
-        logger.info("No meeting URL provided. Defaulting to Teams Web Portal to ensure real instance is called.")
+        logger.info("No meeting URL provided. Defaulting to Teams Web Portal. Note: This usually requires login.")
     else:
         logger.info(f"Using meeting URL: {meeting_url}")
 
     async with async_playwright() as p:
-        # headless=False is required for pyautogui HID simulation to hit the browser window
+        # Launching Chromium. headless=False is preferred for pyautogui interaction in Xvfb.
         browser = await p.chromium.launch(headless=False)
         context = await browser.new_context(
             viewport={'width': 1280, 'height': 720},
             permissions=["microphone", "camera"],
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         )
         page = await context.new_page()
 
         logger.info(f"Navigating to Teams Meeting: {meeting_url}")
-        await page.goto(meeting_url)
+        try:
+            await page.goto(meeting_url, wait_until="domcontentloaded", timeout=60000)
+        except Exception as e:
+            logger.error(f"Initial navigation failed: {e}")
+
+        await page.wait_for_timeout(5000)
         await page.screenshot(path="screenshots/real_teams_initial_load.png")
 
         try:
-            # 1. Handle Launcher/Landing Page
-            logger.info("Handling landing page...")
-            try:
-                # Common landing page button for Web join
-                continue_btn = page.locator("button:has-text('Continue on this browser'), [data-tid='joinOnWeb']")
-                await continue_btn.wait_for(state="visible", timeout=15000)
-                await page.screenshot(path="screenshots/real_teams_landing_page.png")
-                await continue_btn.click()
-                logger.info("Clicked 'Continue on this browser'")
-            except Exception as e:
-                logger.warning(f"Landing page button not found (might have been skipped): {e}")
+            # 1. Handle Launcher/Landing Page (The "How do you want to join?" screen)
+            logger.info("Checking for landing page / launcher...")
+            continue_btn = page.locator("button:has-text('Continue on this browser'), [data-tid='joinOnWeb'], button:has-text('Im Browser fortfahren')")
+            if await continue_btn.count() > 0 and await continue_btn.first.is_visible(timeout=5000):
+                logger.info("Found landing page button. Clicking 'Continue on this browser'...")
+                await continue_btn.first.click()
+                await page.wait_for_timeout(5000)
+                await page.screenshot(path="screenshots/real_teams_after_launcher.png")
 
-            # 2. Handle Pre-join Screen (Guest Name)
-            logger.info("Waiting for pre-join screen...")
-            # Teams guest name input selectors
-            name_input_selectors = [
-                "input[data-tid='prejoin-display-name-input']",
-                "input[placeholder*='name']",
-                "input[placeholder*='Name']",
-                "#prejoin-display-name-input"
-            ]
+            # 2. Handle Pre-join / Guest Join Flow
+            name_filled = False
+            mic_button_found = False
 
-            name_input = None
-            for sel in name_input_selectors:
-                try:
-                    found = page.locator(sel)
-                    if await found.is_visible(timeout=5000):
-                        name_input = found
+            for attempt in range(20):
+                url = page.url
+                title = await page.title()
+                logger.info(f"Attempt {attempt+1}: Page='{title}', URL='{url}'")
+
+                # Check for Sign-in redirect
+                if "login.microsoftonline.com" in url or "login.live.com" in url:
+                    logger.error("Redirected to a Sign-in page. This meeting likely requires an account or the guest link is invalid.")
+                    await page.screenshot(path="screenshots/real_teams_signin_blocked.png")
+                    break
+
+                # Check if we are ALREADY in the meeting
+                mic_btn_sel = "button[data-tid='microphone-button'], button[aria-label*='Mute' i], button[aria-label*='Stumm' i]"
+                if await page.locator(mic_btn_sel).count() > 0 and await page.locator(mic_btn_sel).first.is_visible():
+                    logger.info("Detected Meeting UI.")
+                    mic_button_found = True
+                    break
+
+                # Check for Lobby
+                lobby_indicators = ["let you in soon", "einlässt", "Lobby", "Warteraum"]
+                in_lobby = False
+                for indicator in lobby_indicators:
+                    if await page.locator(f"text='{indicator}'").count() > 0:
+                        logger.info(f"Detected Lobby (Indicator: '{indicator}'). Waiting...")
+                        await page.screenshot(path="screenshots/real_teams_lobby_state.png")
+                        in_lobby = True
                         break
-                except:
+                if in_lobby:
+                    await page.wait_for_timeout(5000)
                     continue
 
-            if name_input:
-                await name_input.fill("HID-Compliance-Tester")
-                logger.info("Filled guest name.")
-                await page.screenshot(path="screenshots/real_teams_prejoin_filled.png")
+                # Handle Name Input (Guest Join)
+                if not name_filled:
+                    name_input_selectors = [
+                        "input[data-tid='prejoin-display-name-input']",
+                        "input[id='prejoin-display-name-input']",
+                        "input[aria-label*='name' i]",
+                        "input[placeholder*='name' i]",
+                        "input[placeholder*='Name' i]"
+                    ]
+                    for sel in name_input_selectors:
+                        found = page.locator(sel)
+                        if await found.count() > 0 and await found.first.is_visible():
+                            logger.info(f"Name input visible ({sel}). Filling...")
+                            await found.first.fill("HID-Compliance-Tester")
+                            name_filled = True
+                            await page.wait_for_timeout(1000)
+                            await page.screenshot(path="screenshots/real_teams_prejoin_filled.png")
+                            break
 
-                # Join Now button
-                join_btn = page.locator("button[data-tid='prejoin-join-button'], button:has-text('Join now')")
-                await join_btn.wait_for(state="visible", timeout=5000)
-                await join_btn.click()
-                logger.info("Clicked 'Join now'")
-            else:
-                logger.warning("Could not find guest name input. Capturing state.")
-                await page.screenshot(path="screenshots/real_teams_prejoin_missing.png")
+                # Handle Join Button
+                join_btn_selectors = [
+                    "button[data-tid='prejoin-join-button']",
+                    "button:has-text('Join now')",
+                    "button:has-text('Jetzt teilnehmen')",
+                    "button:has-text('Teilnehmen')",
+                    "button[aria-label*='Join' i]",
+                    "button[aria-label*='Teilnehmen' i]"
+                ]
+                for sel in join_btn_selectors:
+                    found = page.locator(sel)
+                    if await found.count() > 0 and await found.first.is_visible():
+                        btn_label = await found.first.inner_text() or await found.first.get_attribute("aria-label")
+                        logger.info(f"Join button visible: '{btn_label}'. Clicking...")
+                        await found.first.click()
+                        await page.wait_for_timeout(5000)
+                        await page.screenshot(path="screenshots/real_teams_after_join_click.png")
+                        break
 
-            # 3. Wait to enter meeting
-            logger.info("Waiting to enter meeting...")
-            # The mic button appearing is a good sign we are in
-            mic_button_sel = "button[data-tid='microphone-button'], button[aria-label^='Mute'], button[aria-label^='Unmute']"
-            try:
-                await page.wait_for_selector(mic_button_sel, timeout=60000)
-                logger.info("Entered meeting UI.")
-                await page.screenshot(path="screenshots/real_teams_meeting_ui.png")
-            except:
-                logger.error("Timed out waiting for meeting UI (Mic button).")
-                await page.screenshot(path="screenshots/real_teams_join_timeout.png")
+                await page.wait_for_timeout(4000)
+                logger.info("Waiting for target UI state transition...")
+
+            if not mic_button_found:
+                logger.error("Timed out waiting for Meeting UI (Microphone button).")
+                await page.screenshot(path="screenshots/real_teams_final_failure.png")
                 return
 
+            # 3. Perform HID Test - Toggle Mute
             # Initial state detection
-            aria_label = await page.locator(mic_button_sel).first.get_attribute("aria-label")
-            is_initial_muted = "Unmute" in (aria_label or "")
+            mic_btn_sel = "button[data-tid='microphone-button'], button[aria-label*='Mute' i], button[aria-label*='Stumm' i]"
+            aria_label = await page.locator(mic_btn_sel).first.get_attribute("aria-label") or ""
+            is_initial_muted = any(term in aria_label.lower() for term in ["unmute", "aufheben", "stummgeschaltet"])
             logger.info(f"Initial state: {'Muted' if is_initial_muted else 'Unmuted'}")
 
-            # 4. Perform HID Test - Toggle Mute
             logger.info("Triggering HID Telephony Mute event (0x0B, 0x2F)...")
             simulate_hid_event(0x0B, 0x2F)
             await page.wait_for_timeout(3000)
@@ -156,7 +201,7 @@ async def main():
                 logger.info("HID Mute verification SUCCESS on real Teams instance.")
                 await page.screenshot(path="screenshots/real_teams_mute_success.png")
 
-            # 5. Perform HID Test - Toggle back
+            # 4. Perform HID Test - Toggle back
             logger.info("Triggering HID event again to toggle back...")
             simulate_hid_event(0x0B, 0x2F)
             await page.wait_for_timeout(3000)
@@ -168,7 +213,7 @@ async def main():
 
         except Exception as e:
             logger.error(f"Error during Real Teams automation: {e}")
-            await page.screenshot(path="screenshots/real_teams_error_final.png")
+            await page.screenshot(path="screenshots/real_teams_critical_error.png")
         finally:
             await browser.close()
 
