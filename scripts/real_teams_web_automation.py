@@ -48,12 +48,8 @@ async def verify_real_mute_state(page, expected_muted):
         logger.info(f"Microphone button: aria='{aria_label}', text='{inner_text}'")
 
         # Logic: If the action is "Unmute" or "Stummschaltung aufheben", it is currently MUTED.
-        # If the action is "Mute" or "Stummschalten", it is currently UNMUTED.
-        # Some UIs might show the current state instead of the action.
-
-        # We look for indicators of being MUTED
         is_muted = any(term in aria_label.lower() or term in inner_text.lower()
-                       for term in ["unmute", "aufheben", "stummgeschaltet", "muted"])
+                       for term in ["unmute", "aufheben", "stummgeschaltet", "muted", "freischalten"])
 
         if is_muted == expected_muted:
             logger.info(f"Real Teams Verification: {'Muted' if expected_muted else 'Unmuted'} - SUCCESS")
@@ -74,7 +70,7 @@ async def main():
         logger.info(f"Using meeting URL: {meeting_url}")
 
     async with async_playwright() as p:
-        # Launching Chromium. headless=False is preferred for pyautogui interaction in Xvfb.
+        # headless=False is preferred for pyautogui interaction in Xvfb.
         browser = await p.chromium.launch(headless=False)
         context = await browser.new_context(
             viewport={'width': 1280, 'height': 720},
@@ -95,12 +91,43 @@ async def main():
         try:
             # 1. Handle Launcher/Landing Page (The "How do you want to join?" screen)
             logger.info("Checking for landing page / launcher...")
-            continue_btn = page.locator("button:has-text('Continue on this browser'), [data-tid='joinOnWeb'], button:has-text('Im Browser fortfahren')")
-            if await continue_btn.count() > 0 and await continue_btn.first.is_visible(timeout=5000):
-                logger.info("Found landing page button. Clicking 'Continue on this browser'...")
-                await continue_btn.first.click()
-                await page.wait_for_timeout(5000)
-                await page.screenshot(path="screenshots/real_teams_after_launcher.png")
+            launcher_selectors = [
+                "button:has-text('Continue on this browser')",
+                "button:has-text('Im Browser fortfahren')",
+                "button:has-text('Browser')",
+                "button:has-text('continue')",
+                "[data-tid='joinOnWeb']",
+                "button[aria-label*='browser' i]",
+                "button[aria-label*='Browser' i]",
+                "div[role='button']:has-text('browser' i)",
+                "a:has-text('browser' i)"
+            ]
+
+            for _ in range(5):
+                launcher_btn = None
+                for sel in launcher_selectors:
+                    try:
+                        found = page.locator(sel)
+                        if await found.count() > 0 and await found.first.is_visible():
+                            launcher_btn = found.first
+                            break
+                    except:
+                        continue
+
+                if launcher_btn:
+                    btn_text = (await launcher_btn.inner_text()).strip()
+                    logger.info(f"Found launcher button: '{btn_text}'. Clicking...")
+                    await launcher_btn.click()
+                    # JavaScript fallback click
+                    await page.evaluate("btn => btn.click()", await launcher_btn.element_handle())
+                    await page.wait_for_timeout(5000)
+                    await page.screenshot(path="screenshots/real_teams_after_launcher.png")
+                    break
+                else:
+                    logger.info("Waiting for launcher button to appear...")
+                    await page.wait_for_timeout(3000)
+            else:
+                logger.info("No launcher button detected after retries or already passed.")
 
             # 2. Handle Pre-join / Guest Join Flow
             name_filled = False
@@ -163,7 +190,8 @@ async def main():
                     "button:has-text('Jetzt teilnehmen')",
                     "button:has-text('Teilnehmen')",
                     "button[aria-label*='Join' i]",
-                    "button[aria-label*='Teilnehmen' i]"
+                    "button[aria-label*='Teilnehmen' i]",
+                    "button[type='submit']"
                 ]
                 for sel in join_btn_selectors:
                     found = page.locator(sel)
@@ -171,6 +199,8 @@ async def main():
                         btn_label = await found.first.inner_text() or await found.first.get_attribute("aria-label")
                         logger.info(f"Join button visible: '{btn_label}'. Clicking...")
                         await found.first.click()
+                        # JS click fallback
+                        await page.evaluate("btn => btn.click()", await found.first.element_handle())
                         await page.wait_for_timeout(5000)
                         await page.screenshot(path="screenshots/real_teams_after_join_click.png")
                         break
