@@ -63,6 +63,7 @@ async def verify_real_mute_state(page, expected_muted):
 
 async def main():
     meeting_url = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else "https://teams.microsoft.com/v2/"
+    user_creds = os.environ.get("TEAMS_USER")
 
     if meeting_url == "https://teams.microsoft.com/v2/":
         logger.info("No meeting URL provided. Defaulting to Teams Web Portal. Note: This usually requires login.")
@@ -71,7 +72,15 @@ async def main():
 
     async with async_playwright() as p:
         # headless=False is preferred for pyautogui interaction in Xvfb.
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(
+            headless=False,
+            args=[
+                "--use-fake-ui-for-media-stream",
+                "--use-fake-device-for-media-stream",
+                "--disable-notifications",
+                "--no-sandbox",
+            ]
+        )
         context = await browser.new_context(
             viewport={'width': 1280, 'height': 720},
             permissions=["microphone", "camera"],

@@ -24,8 +24,20 @@ async def verify_mute_state(page, expected_muted):
 async def main():
     async with async_playwright() as p:
         # Launch browser - headless=False is needed for pyautogui to interact with the window in Xvfb
-        browser = await p.chromium.launch(headless=False)
-        context = await browser.new_context()
+        browser = await p.chromium.launch(
+            headless=False,
+            args=[
+                "--use-fake-ui-for-media-stream",
+                "--use-fake-device-for-media-stream",
+                "--disable-notifications",
+                "--no-sandbox",
+            ]
+        )
+        context = await browser.new_context(
+            viewport={'width': 1280, 'height': 720},
+            permissions=["microphone", "camera"],
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        )
         page = await context.new_page()
 
         # Log console messages
