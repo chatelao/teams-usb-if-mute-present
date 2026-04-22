@@ -59,8 +59,6 @@ def simulate_hid_event(page, usage):
         logger.error(f"Error during pyautogui simulation of {event_name}: {e}")
         return False
 
-    # Short delay to allow UI to process the event
-    time.sleep(2)
     return True
 
 if __name__ == "__main__":
