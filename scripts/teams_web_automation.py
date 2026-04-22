@@ -51,6 +51,30 @@ async def main():
         try:
             await page.goto(url)
 
+            # Pre-join verification
+            logger.info("Verifying pre-join mute...")
+            # Fill name to enable button/focus
+            await page.fill("#prejoin-display-name-input", "HID-Tester")
+
+            # Check initial state
+            aria = await page.get_attribute("#prejoin-mic-btn", "aria-label")
+            logger.info(f"Initial pre-join mic ARIA: {aria}")
+
+            # Trigger HID event
+            simulate_hid_event(0x0B, 0x2F)
+            await page.wait_for_timeout(1000)
+
+            aria_after = await page.get_attribute("#prejoin-mic-btn", "aria-label")
+            logger.info(f"Post-toggle pre-join mic ARIA: {aria_after}")
+
+            if "Unmute" in aria_after:
+                logger.info("Mock Pre-join Mute: SUCCESS")
+                await page.screenshot(path="screenshots/web_mock_prejoin_mute_success.png")
+            else:
+                logger.error("Mock Pre-join Mute: FAILED")
+                await page.screenshot(path="screenshots/web_mock_prejoin_mute_fail.png")
+                sys.exit(1)
+
             # Join the call
             logger.info("Joining the call...")
             await page.click("#join-btn")
