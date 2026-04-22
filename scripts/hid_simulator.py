@@ -49,8 +49,8 @@ def simulate_hid_event(page, usage):
     try:
         # Implementation using pyautogui fallback
         if page == 0x0B and usage == 0x2F:
-            logger.info("Emulating Telephony Mute (0x0B, 0x2F) via pyautogui press('m')...")
-            pyautogui.press('m')
+            logger.info("Emulating Telephony Mute (0x0B, 0x2F) via pyautogui hotkey('ctrl', 'shift', 'm')...")
+            pyautogui.hotkey('ctrl', 'shift', 'm')
         elif page == 0x0C and usage == 0xE2:
             logger.info("Emulating Consumer Mute (0x0C, 0xE2) via pyautogui press('volumemute')...")
             pyautogui.press('volumemute')
