@@ -265,7 +265,11 @@ async def main():
                     if await found.count() > 0 and await found.first.is_visible():
                         btn_label = await found.first.inner_text() or await found.first.get_attribute("aria-label")
                         logger.info(f"Join button visible: '{btn_label}'. Clicking...")
-                        await found.first.click()
+                        try:
+                            await found.first.click(timeout=5000)
+                        except:
+                            logger.warning("Standard click failed, attempting forced click...")
+                            await found.first.click(force=True, timeout=5000)
                         # JS click fallback
                         await page.evaluate("btn => btn.click()", await found.first.element_handle())
                         await page.wait_for_timeout(5000)
