@@ -1,6 +1,9 @@
 import tkinter as tk
 import sys
 import os
+from logger_config import setup_logger
+
+logger = setup_logger(__name__)
 
 class MockTeamsUI:
     def __init__(self, root):
@@ -21,9 +24,19 @@ class MockTeamsUI:
         self.root.focus_force()
 
     def on_key(self, event):
-        print(f"Key pressed: {event.keysym}")
+        # Support 'm', XF86AudioMute, and Ctrl+Shift+M (standard Teams shortcut)
+        # In Tkinter, Ctrl+Shift+M can come as 'M' with specific state
+        is_ctrl = (event.state & 0x4) != 0
+        is_shift = (event.state & 0x1) != 0
+
+        print(f"Key pressed: {event.keysym}, state: {event.state}")
+
         if event.keysym in ('m', 'M', 'XF86AudioMute'):
-            self.toggle_mute()
+            if event.keysym in ('m', 'M') and is_ctrl and is_shift:
+                logger.info("Detected Ctrl+Shift+M shortcut")
+                self.toggle_mute()
+            elif event.keysym == 'XF86AudioMute' or (event.keysym.lower() == 'm' and not is_ctrl):
+                self.toggle_mute()
 
     def toggle_mute(self, event=None):
         self.is_muted = not self.is_muted

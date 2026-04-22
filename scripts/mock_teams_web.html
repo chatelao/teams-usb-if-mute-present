@@ -167,7 +167,10 @@
                  // In real teams, 'm' might not work if focus is on input, but let's allow it for testing if name is filled
             }
             // 'AudioVolumeMute' is a common keysym for the mute button
-            if (event.key.toLowerCase() === 'm' || event.key === 'AudioVolumeMute' || event.code === 'AudioVolumeMute' || event.keyCode === 173 || event.keyCode === 181) {
+            const isMuteKey = event.key.toLowerCase() === 'm' || event.key === 'AudioVolumeMute' || event.code === 'AudioVolumeMute' || event.keyCode === 173 || event.keyCode === 181;
+            const isTeamsShortcut = event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'm';
+
+            if (isMuteKey || isTeamsShortcut) {
                 if (inCall) {
                     toggleMute();
                 } else {
