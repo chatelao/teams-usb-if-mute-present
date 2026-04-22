@@ -190,6 +190,38 @@ async def main():
                             name_filled = True
                             await page.wait_for_timeout(1000)
                             await page.screenshot(path="screenshots/real_teams_prejoin_filled.png")
+
+                            # Investigation: Log all buttons on pre-join screen
+                            buttons = await page.locator("button").all()
+                            logger.info(f"Pre-join screen buttons found: {len(buttons)}")
+                            prejoin_mic_btn = None
+                            prejoin_speaker_btn = None
+                            for i, btn in enumerate(buttons):
+                                aria = (await btn.get_attribute("aria-label") or "").lower()
+                                tid = (await btn.get_attribute("data-tid") or "").lower()
+                                text = (await btn.inner_text() or "").lower()
+                                logger.info(f"Button {i}: ARIA='{aria}', TID='{tid}', Text='{text}'")
+
+                                if "mic" in aria or "mic" in tid or "mikrofon" in aria or "microphone" in aria:
+                                    logger.info(f"Potential pre-join mic button found: Button {i}")
+                                    prejoin_mic_btn = btn
+                                if "speaker" in aria or "speaker" in tid or "lautsprecher" in aria or "audio" in aria:
+                                    logger.info(f"Potential pre-join speaker/audio button found: Button {i}")
+                                    prejoin_speaker_btn = btn
+
+                            if prejoin_mic_btn:
+                                logger.info("Triggering HID Telephony Mute (0x0B, 0x2F) on pre-join screen...")
+                                simulate_hid_event(0x0B, 0x2F)
+                                await page.wait_for_timeout(3000)
+                                await page.screenshot(path="screenshots/real_teams_prejoin_muted_test.png")
+
+                                # Verify state change
+                                aria_after = (await prejoin_mic_btn.get_attribute("aria-label") or "").lower()
+                                logger.info(f"Pre-join mic ARIA after toggle: {aria_after}")
+                                if "unmute" in aria_after or "aufheben" in aria_after:
+                                    logger.info("Pre-join HID Mute: SUCCESS")
+                                else:
+                                    logger.warning("Pre-join HID Mute: FAILED or UI did not update ARIA label")
                             break
 
                 # Handle Join Button
