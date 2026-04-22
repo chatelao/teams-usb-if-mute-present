@@ -171,6 +171,9 @@
             const isTeamsShortcut = event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'm';
 
             if (isMuteKey || isTeamsShortcut) {
+                if (isTeamsShortcut) {
+                    console.log("Detected Telephony Mute shortcut (Ctrl+Shift+M)");
+                }
                 if (inCall) {
                     toggleMute();
                 } else {

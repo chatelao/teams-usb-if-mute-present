@@ -33,7 +33,7 @@ class MockTeamsUI:
 
         if event.keysym in ('m', 'M', 'XF86AudioMute'):
             if event.keysym in ('m', 'M') and is_ctrl and is_shift:
-                logger.info("Detected Ctrl+Shift+M shortcut")
+                logger.info("Detected Telephony Mute shortcut (Ctrl+Shift+M)")
                 self.toggle_mute()
             elif event.keysym == 'XF86AudioMute' or (event.keysym.lower() == 'm' and not is_ctrl):
                 self.toggle_mute()
