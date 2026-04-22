@@ -231,8 +231,9 @@ async def main():
                                 logger.info(f"Pre-join mic ARIA before toggle: {aria_before}")
 
                                 logger.info("Triggering HID Telephony Mute (0x0B, 0x2F) on pre-join screen...")
+                                await page.bring_to_front()
                                 simulate_hid_event(0x0B, 0x2F)
-                                await page.wait_for_timeout(3000)
+                                await page.wait_for_timeout(50)
                                 await safe_screenshot(page, "screenshots/real_teams_prejoin_muted_test.png")
 
                                 # Verify state change

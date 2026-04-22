@@ -6,6 +6,7 @@ Automated HID simulation and UI verification.
 
 import os
 import sys
+import time
 from hid_simulator import simulate_hid_event
 from image_verifier import capture_screenshot, verify_template
 from logger_config import setup_logger
@@ -24,6 +25,9 @@ def run_verification_cycle(page, usage, template_path, label):
     if not simulate_hid_event(page, usage):
         logger.error(f"Failed to simulate HID event for {label}")
         return False
+
+    # Wait for UI to update (previously handled inside simulator)
+    time.sleep(2)
 
     # Use descriptive name for screenshots in hid_verify
     screenshot_name = f"screenshots/desktop_{label.lower().replace(' ', '_')}.png"
