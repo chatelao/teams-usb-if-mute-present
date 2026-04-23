@@ -21,6 +21,9 @@ Ziel: Simulation von USB-HID Signalen ohne physische Hardware.
 - [x] **Implementierung `hid_simulator.py`:**
     - Skript zum Senden von `Telephony: Phone Mute` (0x0B, 0x2F).
     - Skript zum Senden von `Consumer: Mute` (0x0C, 0xE2).
+- [x] **Konzept: Real USB-HID Commands:**
+    - Entwicklung eines Konzepts für virtuelle USB-HID Devices via `uinput`.
+    - Referenz-Implementierung in `scripts/virtual_hid_device.py`.
 
 ## Phase 3: Teams Automatisierung
 Ziel: Microsoft Teams fernsteuern und in einen Call-Zustand bringen.
